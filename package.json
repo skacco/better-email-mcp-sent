@@ -1,0 +1,91 @@
+{
+  "name": "better-email-mcp-sent",
+  "mcpName": "io.github.n24q02m/better-email-mcp",
+  "keywords": [
+    "email",
+    "imap",
+    "smtp",
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "ai-agent",
+    "composite-tools",
+    "gmail",
+    "outlook",
+    "claude",
+    "cursor",
+    "copilot",
+    "antigravity",
+    "codex",
+    "opencode",
+    "gemini-cli"
+  ],
+  "version": "1.4.7-sent",
+  "license": "MIT",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc --build tsconfig.build.json && node scripts/build-cli.js",
+    "dev": "tsx watch scripts/start-server.ts",
+    "test": "vitest --passWithNoTests",
+    "test:watch": "vitest watch",
+    "test:coverage": "vitest --coverage",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "type-check": "tsc --noEmit",
+    "check": "biome check . && bun run type-check",
+    "check:fix": "biome check --write . && bun run type-check",
+    "prepublishOnly": "bun run build",
+    "docker:build": "docker build -t n24q02m/better-email-mcp:latest .",
+    "docker:push": "docker push n24q02m/better-email-mcp:latest",
+    "docker:run": "docker run --rm -i -e EMAIL_CREDENTIALS n24q02m/better-email-mcp:latest"
+  },
+  "bin": {
+    "better-email-mcp-sent": "bin/cli.mjs"
+  },
+  "engines": {
+    "node": ">=24.14.0"
+  },
+  "files": [
+    "build/",
+    "bin/",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "html-to-text": "^9.0.5",
+    "imapflow": "^1.2.12",
+    "mailparser": "^3.9.3",
+    "marked": "^17.0.4",
+    "nodemailer": "^8.0.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.6",
+    "@types/html-to-text": "^9.0.4",
+    "@types/mailparser": "^3.4.6",
+    "@types/marked": "^6.0.0",
+    "@types/node": "^25.3.3",
+    "@types/nodemailer": "^6.4.23",
+    "@vitest/coverage-v8": "^4.0.18",
+    "esbuild": "^0.27.3",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  },
+  "description": "Better MCP server for Email (IMAP/SMTP) with composite tools optimized for AI agents",
+  "main": "build/src/init-server.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/n24q02m/better-email-mcp.git"
+  },
+  "author": "n24q02m",
+  "bugs": {
+    "url": "https://github.com/n24q02m/better-email-mcp/issues"
+  },
+  "homepage": "https://github.com/n24q02m/better-email-mcp#readme"
+}

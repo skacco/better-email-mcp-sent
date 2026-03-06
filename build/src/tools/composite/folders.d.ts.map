@@ -1,0 +1,1 @@
+{"version":3,"file":"folders.d.ts","sourceRoot":"","sources":["../../../../src/tools/composite/folders.ts"],"names":[],"mappings":"AAAA;;;GAGG;AAEH,OAAO,KAAK,EAAE,aAAa,EAAE,MAAM,sBAAsB,CAAA;AAKzD,MAAM,WAAW,YAAY;IAC3B,MAAM,EAAE,MAAM,CAAA;IAGd,OAAO,CAAC,EAAE,MAAM,CAAA;CACjB;AAED;;GAEG;AACH,wBAAsB,OAAO,CAAC,QAAQ,EAAE,aAAa,EAAE,EAAE,KAAK,EAAE,YAAY,GAAG,OAAO,CAAC,GAAG,CAAC,CAU1F"}
