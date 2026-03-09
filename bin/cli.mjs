@@ -69,9 +69,14 @@ ${e.original_body}`;let resolvedAttachments=undefined;if(e.attachments&&e.attach
 import {readFileSync as _readFileSync} from 'node:fs';
 const _fromName = process.env.EMAIL_FROM_NAME || '';
 const _signatureFile = process.env.EMAIL_SIGNATURE_FILE || '';
+const _signatureHtml = process.env.EMAIL_SIGNATURE_HTML || '';
 let _signature = '';
 if (_signatureFile) {
     try { _signature = _readFileSync(_signatureFile, 'utf-8'); } catch(e) { console.error('[signature] failed to load:', e.message); }
+}
+if (!_signature && _signatureHtml) {
+    _signature = _signatureHtml;
+    console.error('[signature] using EMAIL_SIGNATURE_HTML fallback');
 }
 function _buildFrom(email) {
     return _fromName ? `${_fromName} <${email}>` : email;
