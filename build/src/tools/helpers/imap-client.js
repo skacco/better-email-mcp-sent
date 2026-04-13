@@ -54,6 +54,7 @@ async function withConnection(account, fn) {
  */
 function parseQuery(query) {
     const upper = query.toUpperCase().trim();
+    process.stderr.write('[parseQuery] input: ' + query + '\n');
     // Simple flag shortcuts — fully server-side
     if (upper === 'UNREAD' || upper === 'UNSEEN') return { criteria: { seen: false } };
     if (upper === 'READ' || upper === 'SEEN') return { criteria: { seen: true } };
@@ -66,7 +67,7 @@ function parseQuery(query) {
         return { criteria: { since: new Date(toSinceMatch[2]) }, toFilter: toSinceMatch[1].trim().replace(/^["']|["']$/g, '') };
     const toMatch = query.match(/^TO\s+(.+)$/i);
     if (toMatch)
-        return { criteria: {}, toFilter: toMatch[1].trim().replace(/^["']|["']$/g, '') };
+        return { criteria: { all: true }, toFilter: toMatch[1].trim().replace(/^["']|["']$/g, '') };
     // Date range — SINCE server-side, BEFORE client-side
     const sinceBeforeMatch = query.match(/^SINCE\s+(\d{4}-\d{2}-\d{2})\s+BEFORE\s+(\d{4}-\d{2}-\d{2})$/i);
     if (sinceBeforeMatch)
@@ -79,7 +80,7 @@ function parseQuery(query) {
     if (sinceMatch) return { criteria: { since: new Date(sinceMatch[1]) } };
     // BEFORE alone — client-side only
     const beforeMatch = query.match(/^BEFORE\s+(\d{4}-\d{2}-\d{2})$/i);
-    if (beforeMatch) return { criteria: {}, beforeDate: new Date(beforeMatch[1]) };
+    if (beforeMatch) return { criteria: { all: true }, beforeDate: new Date(beforeMatch[1]) };
     // FROM — server-side
     const fromMatch = query.match(/^FROM\s+(.+)$/i);
     if (fromMatch) return { criteria: { from: fromMatch[1].trim().replace(/^["']|["']$/g, '') } };
