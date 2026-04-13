@@ -99,19 +99,6 @@ function buildSearchCriteria(query) {
     return { subject: query };
 }
 /**
- * Extract TO filter and optional SINCE date from query for client-side filtering.
- * Returns null if no TO clause found.
- */
-function extractToFilter(query) {
-    const toSinceMatch = query.match(/^TO\s+(.+?)\s+SINCE\s+(\d{4}-\d{2}-\d{2})$/i);
-    if (toSinceMatch)
-        return { to: toSinceMatch[1].trim().replace(/^["']|["']$/g, ''), since: new Date(toSinceMatch[2]) };
-    const toMatch = query.match(/^TO\s+(.+)$/i);
-    if (toMatch)
-        return { to: toMatch[1].trim().replace(/^["']|["']$/g, ''), since: null };
-    return null;
-}
-/**
  * Extract a short snippet from email body
  */
 async function extractSnippet(source, maxLength = 200) {
@@ -154,11 +141,7 @@ function formatAddress(addr) {
  * Search emails across one or multiple accounts
  */
 export async function searchEmails(accounts, query, folder, limit) {
-    // Check if query contains a TO filter (not supported server-side on all IMAP servers)
-    const toFilter = extractToFilter(query);
-    const criteria = toFilter
-        ? (toFilter.since ? { since: toFilter.since } : {})
-        : buildSearchCriteria(query);
+    const criteria = buildSearchCriteria(query);
     const accountPromises = accounts.map(async (account) => {
         try {
             const emails = await withConnection(account, async (client) => {
@@ -168,28 +151,8 @@ export async function searchEmails(accounts, query, folder, limit) {
                     const allUids = await client.search(criteria, { uid: true });
                     if (!allUids || allUids.length === 0)
                         return [];
-                    // Step 2: if TO filter, stream envelopes and filter client-side
-                    let selectedUids;
-                    if (toFilter) {
-                        const matchingUids = [];
-                        // eslint-disable-next-line no-restricted-syntax
-                        for await (const msg of client.fetch('1:*', {
-                            uid: true,
-                            envelope: true
-                        }, { uid: true })) {
-                            const toAddresses = (msg.envelope?.to || [])
-                                .map(a => `${a.name || ''} ${a.address || ''}`.toLowerCase())
-                                .join(' ');
-                            if (toAddresses.includes(toFilter.to.toLowerCase())) {
-                                matchingUids.push(msg.uid);
-                            }
-                        }
-                        selectedUids = matchingUids.slice(-limit);
-                    }
-                    else {
-                        // Step 2b: take the most recent `limit` UIDs (highest UIDs = most recent)
-                        selectedUids = allUids.slice(-limit);
-                    }
+                    // Step 2: take the most recent `limit` UIDs (highest UIDs = most recent)
+                    const selectedUids = allUids.slice(-limit);
                     if (selectedUids.length === 0)
                         return [];
                     // Step 3: fetch only those specific UIDs
