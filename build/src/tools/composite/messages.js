@@ -43,7 +43,7 @@ async function handleSearch(accounts, input) {
     const targetAccounts = resolveAccounts(accounts, input.account);
     const query = input.query || 'UNSEEN';
     const folder = input.folder || 'INBOX';
-    const limit = input.limit || 20;
+    const limit = input.limit || 50;
     const results = await searchEmails(targetAccounts, query, folder, limit);
     return {
         action: 'search',

@@ -59,7 +59,7 @@ const TOOLS = [
                     description: 'Search query: UNREAD, FLAGGED, SINCE YYYY-MM-DD, FROM email, SUBJECT text, or combined (default: UNSEEN)'
                 },
                 folder: { type: 'string', description: 'Mailbox folder (default: INBOX)' },
-                limit: { type: 'number', description: 'Max results for search (default: 20)' },
+                limit: { type: 'number', description: 'Max results for search (default: 50)' },
                 uid: { type: 'number', description: 'Email UID (for read/modify single email)' },
                 uids: { type: 'array', items: { type: 'number' }, description: 'Multiple UIDs for batch operations' },
                 destination: { type: 'string', description: 'Target folder for move action' }
