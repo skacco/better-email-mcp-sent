@@ -168,21 +168,22 @@ export async function searchEmails(accounts, query, folder, limit) {
                     const allUids = await client.search(criteria, { uid: true });
                     if (!allUids || allUids.length === 0)
                         return [];
-                    // Step 2: if TO filter, fetch envelopes for all UIDs and filter client-side
+                    // Step 2: if TO filter, stream envelopes and filter client-side
                     let selectedUids;
                     if (toFilter) {
-                        const envelopes = await client.fetchAll(allUids.join(','), {
+                        const matchingUids = [];
+                        // eslint-disable-next-line no-restricted-syntax
+                        for await (const msg of client.fetch('1:*', {
                             uid: true,
                             envelope: true
-                        }, { uid: true });
-                        const matchingUids = envelopes
-                            .filter(msg => {
-                                const toAddresses = (msg.envelope?.to || [])
-                                    .map(a => `${a.name || ''} ${a.address || ''}`.toLowerCase())
-                                    .join(' ');
-                                return toAddresses.includes(toFilter.to.toLowerCase());
-                            })
-                            .map(msg => msg.uid);
+                        }, { uid: true })) {
+                            const toAddresses = (msg.envelope?.to || [])
+                                .map(a => `${a.name || ''} ${a.address || ''}`.toLowerCase())
+                                .join(' ');
+                            if (toAddresses.includes(toFilter.to.toLowerCase())) {
+                                matchingUids.push(msg.uid);
+                            }
+                        }
                         selectedUids = matchingUids.slice(-limit);
                     }
                     else {
