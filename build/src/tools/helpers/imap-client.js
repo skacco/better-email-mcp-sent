@@ -79,10 +79,6 @@ function buildSearchCriteria(query) {
     const fromMatch = query.match(/^FROM\s+(.+)$/i);
     if (fromMatch)
         return { from: fromMatch[1].trim().replace(/^["']|["']$/g, '') };
-    // To filter: TO email@example.com or TO domain.com
-    const toMatch = query.match(/^TO\s+(.+)$/i);
-    if (toMatch)
-        return { to: toMatch[1].trim().replace(/^["']|["']$/g, '') };
     // Subject filter: SUBJECT keyword (strip optional surrounding quotes)
     const subjectMatch = query.match(/^SUBJECT\s+(.+)$/i);
     if (subjectMatch)
@@ -95,16 +91,25 @@ function buildSearchCriteria(query) {
     const compoundUnreadFrom = query.match(/^UNREAD\s+FROM\s+(.+)$/i);
     if (compoundUnreadFrom)
         return { seen: false, from: compoundUnreadFrom[1].trim().replace(/^["']|["']$/g, '') };
-    // Compound: TO x SINCE date
-    const toSinceMatch = query.match(/^TO\s+(.+?)\s+SINCE\s+(\d{4}-\d{2}-\d{2})$/i);
-    if (toSinceMatch)
-        return { to: toSinceMatch[1].trim().replace(/^["']|["']$/g, ''), since: new Date(toSinceMatch[2]) };
     // Compound: FROM x SINCE date
     const fromSinceMatch = query.match(/^FROM\s+(.+?)\s+SINCE\s+(\d{4}-\d{2}-\d{2})$/i);
     if (fromSinceMatch)
         return { from: fromSinceMatch[1].trim().replace(/^["']|["']$/g, ''), since: new Date(fromSinceMatch[2]) };
     // Default: treat as subject search
     return { subject: query };
+}
+/**
+ * Extract TO filter and optional SINCE date from query for client-side filtering.
+ * Returns null if no TO clause found.
+ */
+function extractToFilter(query) {
+    const toSinceMatch = query.match(/^TO\s+(.+?)\s+SINCE\s+(\d{4}-\d{2}-\d{2})$/i);
+    if (toSinceMatch)
+        return { to: toSinceMatch[1].trim().replace(/^["']|["']$/g, ''), since: new Date(toSinceMatch[2]) };
+    const toMatch = query.match(/^TO\s+(.+)$/i);
+    if (toMatch)
+        return { to: toMatch[1].trim().replace(/^["']|["']$/g, ''), since: null };
+    return null;
 }
 /**
  * Extract a short snippet from email body
@@ -149,7 +154,11 @@ function formatAddress(addr) {
  * Search emails across one or multiple accounts
  */
 export async function searchEmails(accounts, query, folder, limit) {
-    const criteria = buildSearchCriteria(query);
+    // Check if query contains a TO filter (not supported server-side on all IMAP servers)
+    const toFilter = extractToFilter(query);
+    const criteria = toFilter
+        ? (toFilter.since ? { since: toFilter.since } : {})
+        : buildSearchCriteria(query);
     const accountPromises = accounts.map(async (account) => {
         try {
             const emails = await withConnection(account, async (client) => {
@@ -159,8 +168,29 @@ export async function searchEmails(accounts, query, folder, limit) {
                     const allUids = await client.search(criteria, { uid: true });
                     if (!allUids || allUids.length === 0)
                         return [];
-                    // Step 2: take the most recent `limit` UIDs (highest UIDs = most recent)
-                    const selectedUids = allUids.slice(-limit);
+                    // Step 2: if TO filter, fetch envelopes for all UIDs and filter client-side
+                    let selectedUids;
+                    if (toFilter) {
+                        const envelopes = await client.fetchAll(allUids.join(','), {
+                            uid: true,
+                            envelope: true
+                        }, { uid: true });
+                        const matchingUids = envelopes
+                            .filter(msg => {
+                                const toAddresses = (msg.envelope?.to || [])
+                                    .map(a => `${a.name || ''} ${a.address || ''}`.toLowerCase())
+                                    .join(' ');
+                                return toAddresses.includes(toFilter.to.toLowerCase());
+                            })
+                            .map(msg => msg.uid);
+                        selectedUids = matchingUids.slice(-limit);
+                    }
+                    else {
+                        // Step 2b: take the most recent `limit` UIDs (highest UIDs = most recent)
+                        selectedUids = allUids.slice(-limit);
+                    }
+                    if (selectedUids.length === 0)
+                        return [];
                     // Step 3: fetch only those specific UIDs
                     const messages = await client.fetchAll(selectedUids, {
                         uid: true,
