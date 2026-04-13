@@ -59,10 +59,22 @@ function buildSearchCriteria(query) {
         return { flagged: false };
     if (upper === 'ALL' || upper === '*')
         return {};
+    // Date range: SINCE YYYY-MM-DD BEFORE YYYY-MM-DD
+    const sinceBeforeMatch = query.match(/^SINCE\s+(\d{4}-\d{2}-\d{2})\s+BEFORE\s+(\d{4}-\d{2}-\d{2})$/i);
+    if (sinceBeforeMatch)
+        return { since: new Date(sinceBeforeMatch[1]), before: new Date(sinceBeforeMatch[2]) };
+    // Date range: BEFORE YYYY-MM-DD SINCE YYYY-MM-DD
+    const beforeSinceMatch = query.match(/^BEFORE\s+(\d{4}-\d{2}-\d{2})\s+SINCE\s+(\d{4}-\d{2}-\d{2})$/i);
+    if (beforeSinceMatch)
+        return { before: new Date(beforeSinceMatch[1]), since: new Date(beforeSinceMatch[2]) };
     // Date-based: SINCE YYYY-MM-DD
     const sinceMatch = query.match(/^SINCE\s+(\d{4}-\d{2}-\d{2})$/i);
     if (sinceMatch)
         return { since: new Date(sinceMatch[1]) };
+    // Date-based: BEFORE YYYY-MM-DD
+    const beforeMatch = query.match(/^BEFORE\s+(\d{4}-\d{2}-\d{2})$/i);
+    if (beforeMatch)
+        return { before: new Date(beforeMatch[1]) };
     // From filter: FROM email@example.com (strip optional surrounding quotes)
     const fromMatch = query.match(/^FROM\s+(.+)$/i);
     if (fromMatch)
