@@ -22,7 +22,12 @@ function createClient(account) {
             pass: account.password
         },
         tls: { rejectUnauthorized: false },
-        logger: false
+        logger: {
+            debug: (obj) => process.stderr.write('[IMAP] ' + JSON.stringify(obj) + '\n'),
+            info: (obj) => process.stderr.write('[IMAP] ' + JSON.stringify(obj) + '\n'),
+            warn: (obj) => process.stderr.write('[IMAP] ' + JSON.stringify(obj) + '\n'),
+            error: (obj) => process.stderr.write('[IMAP] ' + JSON.stringify(obj) + '\n'),
+        }
     });
 }
 /**
