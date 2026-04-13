@@ -49,59 +49,55 @@ async function withConnection(account, fn) {
     }
 }
 /**
- * Build IMAP search criteria from query string
+ * Parse query into server-side IMAP criteria (only what Dovecot supports reliably)
+ * and client-side filters for TO and BEFORE (applied after envelope fetch).
  */
-function buildSearchCriteria(query) {
+function parseQuery(query) {
     const upper = query.toUpperCase().trim();
-    // Simple keyword shortcuts
-    if (upper === 'UNREAD' || upper === 'UNSEEN')
-        return { seen: false };
-    if (upper === 'READ' || upper === 'SEEN')
-        return { seen: true };
-    if (upper === 'FLAGGED' || upper === 'STARRED')
-        return { flagged: true };
-    if (upper === 'UNFLAGGED' || upper === 'UNSTARRED')
-        return { flagged: false };
-    if (upper === 'ALL' || upper === '*')
-        return {};
-    // Date range: SINCE YYYY-MM-DD BEFORE YYYY-MM-DD
+    // Simple flag shortcuts — fully server-side
+    if (upper === 'UNREAD' || upper === 'UNSEEN') return { criteria: { seen: false } };
+    if (upper === 'READ' || upper === 'SEEN') return { criteria: { seen: true } };
+    if (upper === 'FLAGGED' || upper === 'STARRED') return { criteria: { flagged: true } };
+    if (upper === 'UNFLAGGED' || upper === 'UNSTARRED') return { criteria: { flagged: false } };
+    if (upper === 'ALL' || upper === '*') return { criteria: {} };
+    // TO filter — client-side only (server doesn't support it reliably)
+    const toSinceMatch = query.match(/^TO\s+(.+?)\s+SINCE\s+(\d{4}-\d{2}-\d{2})$/i);
+    if (toSinceMatch)
+        return { criteria: { since: new Date(toSinceMatch[2]) }, toFilter: toSinceMatch[1].trim().replace(/^["']|["']$/g, '') };
+    const toMatch = query.match(/^TO\s+(.+)$/i);
+    if (toMatch)
+        return { criteria: {}, toFilter: toMatch[1].trim().replace(/^["']|["']$/g, '') };
+    // Date range — SINCE server-side, BEFORE client-side
     const sinceBeforeMatch = query.match(/^SINCE\s+(\d{4}-\d{2}-\d{2})\s+BEFORE\s+(\d{4}-\d{2}-\d{2})$/i);
     if (sinceBeforeMatch)
-        return { since: new Date(sinceBeforeMatch[1]), before: new Date(sinceBeforeMatch[2]) };
-    // Date range: BEFORE YYYY-MM-DD SINCE YYYY-MM-DD
+        return { criteria: { since: new Date(sinceBeforeMatch[1]) }, beforeDate: new Date(sinceBeforeMatch[2]) };
     const beforeSinceMatch = query.match(/^BEFORE\s+(\d{4}-\d{2}-\d{2})\s+SINCE\s+(\d{4}-\d{2}-\d{2})$/i);
     if (beforeSinceMatch)
-        return { before: new Date(beforeSinceMatch[1]), since: new Date(beforeSinceMatch[2]) };
-    // Date-based: SINCE YYYY-MM-DD
+        return { criteria: { since: new Date(beforeSinceMatch[2]) }, beforeDate: new Date(beforeSinceMatch[1]) };
+    // SINCE alone — server-side
     const sinceMatch = query.match(/^SINCE\s+(\d{4}-\d{2}-\d{2})$/i);
-    if (sinceMatch)
-        return { since: new Date(sinceMatch[1]) };
-    // Date-based: BEFORE YYYY-MM-DD
+    if (sinceMatch) return { criteria: { since: new Date(sinceMatch[1]) } };
+    // BEFORE alone — client-side only
     const beforeMatch = query.match(/^BEFORE\s+(\d{4}-\d{2}-\d{2})$/i);
-    if (beforeMatch)
-        return { before: new Date(beforeMatch[1]) };
-    // From filter: FROM email@example.com (strip optional surrounding quotes)
+    if (beforeMatch) return { criteria: {}, beforeDate: new Date(beforeMatch[1]) };
+    // FROM — server-side
     const fromMatch = query.match(/^FROM\s+(.+)$/i);
-    if (fromMatch)
-        return { from: fromMatch[1].trim().replace(/^["']|["']$/g, '') };
-    // Subject filter: SUBJECT keyword (strip optional surrounding quotes)
-    const subjectMatch = query.match(/^SUBJECT\s+(.+)$/i);
-    if (subjectMatch)
-        return { subject: subjectMatch[1].trim().replace(/^["']|["']$/g, '') };
-    // Compound: UNREAD SINCE 2024-01-01
-    const compoundUnreadSince = query.match(/^UNREAD\s+SINCE\s+(\d{4}-\d{2}-\d{2})$/i);
-    if (compoundUnreadSince)
-        return { seen: false, since: new Date(compoundUnreadSince[1]) };
-    // Compound: UNREAD FROM x
-    const compoundUnreadFrom = query.match(/^UNREAD\s+FROM\s+(.+)$/i);
-    if (compoundUnreadFrom)
-        return { seen: false, from: compoundUnreadFrom[1].trim().replace(/^["']|["']$/g, '') };
-    // Compound: FROM x SINCE date
+    if (fromMatch) return { criteria: { from: fromMatch[1].trim().replace(/^["']|["']$/g, '') } };
+    // FROM x SINCE date — server-side
     const fromSinceMatch = query.match(/^FROM\s+(.+?)\s+SINCE\s+(\d{4}-\d{2}-\d{2})$/i);
     if (fromSinceMatch)
-        return { from: fromSinceMatch[1].trim().replace(/^["']|["']$/g, ''), since: new Date(fromSinceMatch[2]) };
-    // Default: treat as subject search
-    return { subject: query };
+        return { criteria: { from: fromSinceMatch[1].trim().replace(/^["']|["']$/g, ''), since: new Date(fromSinceMatch[2]) } };
+    // SUBJECT — server-side
+    const subjectMatch = query.match(/^SUBJECT\s+(.+)$/i);
+    if (subjectMatch) return { criteria: { subject: subjectMatch[1].trim().replace(/^["']|["']$/g, '') } };
+    // UNREAD SINCE — server-side
+    const unreadSinceMatch = query.match(/^UNREAD\s+SINCE\s+(\d{4}-\d{2}-\d{2})$/i);
+    if (unreadSinceMatch) return { criteria: { seen: false, since: new Date(unreadSinceMatch[1]) } };
+    // UNREAD FROM — server-side
+    const unreadFromMatch = query.match(/^UNREAD\s+FROM\s+(.+)$/i);
+    if (unreadFromMatch) return { criteria: { seen: false, from: unreadFromMatch[1].trim().replace(/^["']|["']$/g, '') } };
+    // Default: subject search
+    return { criteria: { subject: query } };
 }
 /**
  * Extract a short snippet from email body
@@ -146,18 +142,46 @@ function formatAddress(addr) {
  * Search emails across one or multiple accounts
  */
 export async function searchEmails(accounts, query, folder, limit) {
-    const criteria = buildSearchCriteria(query);
+    const { criteria, toFilter, beforeDate } = parseQuery(query);
+    const needsClientFilter = toFilter || beforeDate;
     const accountPromises = accounts.map(async (account) => {
         try {
             const emails = await withConnection(account, async (client) => {
                 const lock = await client.getMailboxLock(folder);
                 try {
-                    // Step 1: search to get UIDs (fast — server-side filtering)
+                    // Step 1: server-side search (only criteria the server handles reliably)
                     const allUids = await client.search(criteria, { uid: true });
                     if (!allUids || allUids.length === 0)
                         return [];
-                    // Step 2: take the most recent `limit` UIDs (highest UIDs = most recent)
-                    const selectedUids = allUids.slice(-limit);
+                    // Step 2: if client-side filters needed, fetch envelopes in batches
+                    let selectedUids;
+                    if (needsClientFilter) {
+                        const matchingUids = [];
+                        const batchSize = 200;
+                        for (let i = 0; i < allUids.length; i += batchSize) {
+                            const batch = allUids.slice(i, i + batchSize);
+                            const envMsgs = await client.fetchAll(batch.join(','), { uid: true, envelope: true }, { uid: true });
+                            for (const msg of envMsgs) {
+                                if (toFilter) {
+                                    const toAddrs = (msg.envelope?.to || [])
+                                        .map(a => (a.address || '').toLowerCase())
+                                        .join(' ');
+                                    if (!toAddrs.includes(toFilter.toLowerCase()))
+                                        continue;
+                                }
+                                if (beforeDate) {
+                                    const msgDate = msg.envelope?.date;
+                                    if (!msgDate || msgDate >= beforeDate)
+                                        continue;
+                                }
+                                matchingUids.push(msg.uid);
+                            }
+                        }
+                        selectedUids = matchingUids.slice(-limit);
+                    }
+                    else {
+                        selectedUids = allUids.slice(-limit);
+                    }
                     if (selectedUids.length === 0)
                         return [];
                     // Step 3: fetch only those specific UIDs
