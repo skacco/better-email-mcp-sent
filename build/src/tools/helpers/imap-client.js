@@ -155,7 +155,7 @@ export async function searchEmails(accounts, query, folder, limit) {
                         flags: true,
                         envelope: true,
                         bodyStructure: true,
-                        source: { start: 0, maxLength: 512 }
+                        source: { start: 0, maxLength: 2048 }
                     }, { uid: true });
                     // Process snippets in parallel to improve performance
                     const summariesPromises = messages.map(async (msg) => {
