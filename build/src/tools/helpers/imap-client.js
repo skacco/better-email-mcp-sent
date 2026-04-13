@@ -79,6 +79,10 @@ function buildSearchCriteria(query) {
     const fromMatch = query.match(/^FROM\s+(.+)$/i);
     if (fromMatch)
         return { from: fromMatch[1].trim().replace(/^["']|["']$/g, '') };
+    // To filter: TO email@example.com or TO domain.com
+    const toMatch = query.match(/^TO\s+(.+)$/i);
+    if (toMatch)
+        return { to: toMatch[1].trim().replace(/^["']|["']$/g, '') };
     // Subject filter: SUBJECT keyword (strip optional surrounding quotes)
     const subjectMatch = query.match(/^SUBJECT\s+(.+)$/i);
     if (subjectMatch)
@@ -91,6 +95,14 @@ function buildSearchCriteria(query) {
     const compoundUnreadFrom = query.match(/^UNREAD\s+FROM\s+(.+)$/i);
     if (compoundUnreadFrom)
         return { seen: false, from: compoundUnreadFrom[1].trim().replace(/^["']|["']$/g, '') };
+    // Compound: TO x SINCE date
+    const toSinceMatch = query.match(/^TO\s+(.+?)\s+SINCE\s+(\d{4}-\d{2}-\d{2})$/i);
+    if (toSinceMatch)
+        return { to: toSinceMatch[1].trim().replace(/^["']|["']$/g, ''), since: new Date(toSinceMatch[2]) };
+    // Compound: FROM x SINCE date
+    const fromSinceMatch = query.match(/^FROM\s+(.+?)\s+SINCE\s+(\d{4}-\d{2}-\d{2})$/i);
+    if (fromSinceMatch)
+        return { from: fromSinceMatch[1].trim().replace(/^["']|["']$/g, ''), since: new Date(fromSinceMatch[2]) };
     // Default: treat as subject search
     return { subject: query };
 }
